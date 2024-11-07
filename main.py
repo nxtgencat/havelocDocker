@@ -208,4 +208,5 @@ def readLatestMails():
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)  # Run Flask app
+    port = int(os.environ.get('PORT', 5000))  # Use the PORT environment variable
+    app.run(host='0.0.0.0', port=port)
