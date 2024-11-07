@@ -63,6 +63,9 @@ ENV CHROME_BINARY_PATH="/usr/bin/google-chrome"
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Expose the port you want the app to listen on
+EXPOSE 5000
+
 # Copy your Python script
 COPY . /app
 

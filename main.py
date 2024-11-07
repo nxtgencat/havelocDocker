@@ -73,7 +73,7 @@ attachment_download_button_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/
 cancel_button_selector = "/html/body/div[3]/div[3]/div/div[3]/button[1]/span[1]"
 
 
-def readLatestMails():
+def readLatestMails(host=os.getenv('HOST', '0.0.0.0'), port=int(os.getenv('PORT', 5000))):
     # Locate and click the button to read the latest emails
     # Locate and click the Cancel button
     try:
