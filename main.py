@@ -8,9 +8,21 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-
+from flask import Flask
 from api import upload_company
 from data_reader import reg_extract
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello_world():
+    return "Hello, World!"
+
+# Get the port from the environment variable
+port = int(os.environ.get("PORT", 5000))
+
+# Bind the app to 0.0.0.0 and the port from the environment
+app.run(host="0.0.0.0", port=port)
 
 chrome_options = Options()
 chrome_options.add_argument('--headless')  # Run in headless mode
@@ -73,7 +85,7 @@ attachment_download_button_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/
 cancel_button_selector = "/html/body/div[3]/div[3]/div/div[3]/button[1]/span[1]"
 
 
-def readLatestMails(host=os.getenv('HOST', '0.0.0.0'), port=int(os.getenv('PORT', 5000))):
+def readLatestMails():
     # Locate and click the button to read the latest emails
     # Locate and click the Cancel button
     try:
