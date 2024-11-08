@@ -1,28 +1,35 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Image with Version from version.txt
 
 on:
   push:
-    tags:
-      - 'v*'  # Trigger the workflow for any version tags (e.g., v1.0.0)
+    branches:
+      - docker
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-    - name: Log in to DockerHub (or GitHub Container Registry)
+    # Read version from version.txt and add 'v' prefix
+    - name: Get version from version.txt
+      id: get_version
+      run: |
+        VERSION=$(cat version.txt)
+        VERSION="v$VERSION"  # Add 'v' prefix to the version
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    # Log in to Docker Hub (or GHCR)
+    - name: Log in to Docker Hub
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}  
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build Docker image
+    # Build and push Docker image using version with 'v' prefix
+    - name: Build and push Docker image
       run: |
-        docker build -t nxtgencat/havelocscraper:${{ github.ref_name }} .
-
-    - name: Push Docker image to DockerHub (or GitHub Container Registry)
-      run: |
-        docker push nxtgencat/havelocscraper:${{ github.ref_name }}
+        docker build -t your-dockerhub-username/your-image-name:${{ env.VERSION }} .
+        docker push your-dockerhub-username/your-image-name:${{ env.VERSION }}
