@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from api import upload_company
 from data_reader import reg_extract
+from trigger_bot import fetch_and_update_users
 
 chrome_options = Options()
 chrome_options.add_argument('--headless')  # Run in headless mode
@@ -166,6 +167,9 @@ def run_haveloc():
                                     # Invoke reg_extract with the downloaded file path
                                     print(f"Extracting data: {downloaded_file}")
                                     nxtresult = reg_extract(downloaded_file)
+
+                                    fetch_and_update_users(company_name,nxtresult)
+
                                     upload_response = upload_company(company_name, nxtresult)
                                     print("Data uploaded to Supabase:", upload_response)
 

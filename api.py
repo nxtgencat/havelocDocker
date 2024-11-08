@@ -27,3 +27,4 @@ def upload_company(company_title: str, reg_number: str):
 
     # Return the response from Supabase
     return response
+
