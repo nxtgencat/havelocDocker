@@ -1,17 +1,33 @@
-import json
 import os
 import time
+
+import logging
+# Configure the logger
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler("haveloc_scraper.log"),
+        logging.StreamHandler()
+    ]
+)
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
-from api import upload_company
-from data_reader import reg_extract
-from trigger_bot import fetch_and_update_users
+from data_utils import get_haveloc_credentials
+from my_workbook import reg_extract
+from supabase_api import fetch_and_update_users, upload_company
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')  # Clear screen based on OS
+
+logging.info('Setting up environment')
 
 chrome_options = Options()
 chrome_options.add_argument('--headless')  # Run in headless mode
@@ -24,202 +40,142 @@ service = Service('/usr/local/bin/chromedriver')  # Specify the location of Chro
 
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# Login URL (or any URL you want to test)
+# URLs and Selectors
 signin_url = "https://app.haveloc.com/"
-
-# Open the signin URL
-driver.get(signin_url)
-
-# Load the saved data from the JSON file
-with open("saved_data.json", "r") as json_file:
-    saved_data = json.load(json_file)
-
-# Inject cookies and local storage
-cookies = saved_data.get("cookies", [])
-for cookie in cookies:
-    driver.add_cookie(cookie)
-
-local_storage = saved_data.get("localStorage", {})
-for key, value in local_storage.items():
-    driver.execute_script(f"window.localStorage.setItem('{key}', '{value}');")
-
-# Refresh the page to apply cookies and local storage
-driver.refresh()
-
-# Navigate to the notice page
 notice_url = "https://app.haveloc.com/notice"
-driver.get(notice_url)
+selectors = {
+    "email_list_container": "//*[@id='root']/div[3]/div[2]/div/div[1]/div[3]",
+    "email_element": "./div",
+    "load_more_button": "load_more_btn",
+    "email_subject": ".//div[@class='email-subject']/span",
+    "email_subject_detail": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[1]/div[1]",
+    "email_date_detail": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[1]/div[2]/div[2]",
+    "attachment_notification": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[1]",
+    "attachment_download_button": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[1]/div/div/div[2]/span",
+    "cancel_button": "/html/body/div[3]/div[3]/div/div[3]/button[1]/span[1]",
+    "login_page_identify": "//*[@id='root']/div[2]/div[1]/div[1]"
+}
 
-# Add a delay to allow dynamic content to load
-time.sleep(5)
+def inject_credentials():
+    """Inject cookies and local storage from saved credentials."""
+    saved_data = get_haveloc_credentials()
+    for cookie in saved_data.get("cookies", []):
+        driver.add_cookie(cookie)
+    for key, value in saved_data.get("localStorage", {}).items():
+        driver.execute_script(f"window.localStorage.setItem('{key}', '{value}');")
 
-# Element Selectors (Updated to XPath)
+def login_haveloc():
+    """Log into Haveloc app, retrying if login fails."""
+    driver.get(signin_url)
+    inject_credentials()
+    driver.refresh()
+    while True:
+        try:
+            login_element = WebDriverWait(driver, 5).until(
+                conditions.presence_of_element_located((By.XPATH, selectors["login_page_identify"]))
+            )
+            if login_element.text.lower() == "log in to haveloc":
+                logging.warning("Cannot login to Haveloc app. Retrying...")
+                driver.refresh()
+                inject_credentials()
+                time.sleep(3)
+        except Exception:
+            logging.info("Logged in successfully. Now reading notifications.")
+            driver.get(notice_url)
+            time.sleep(5)
+            break
 
-# Email List Container
-email_list_container_selector = "//*[@id='root']/div[3]/div[2]/div/div[1]/div[3]"
-# Individual Email Elements
-email_element_selector = "./div"  # To locate each email item within the email list container
-# "Load More" Button
-load_more_button_selector = "load_more_btn"  # Class name to identify the "Load More" button
-# Email Subject
-email_subject_selector = ".//div[@class='email-subject']/span"  # Inside each email element
-# Email Subject and Date on Detail Page
-email_subject_detail_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[1]/div[1]"
-email_date_detail_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[1]/div[2]/div[2]"
-# Attachment Notification Element
-attachment_notification_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[1]"
-# Attachment Download Button
-attachment_download_button_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[1]/div/div/div[2]/span"
-# Cancel Button
-cancel_button_selector = "/html/body/div[3]/div[3]/div/div[3]/button[1]/span[1]"
+login_haveloc()
 
+def process_email(email_element, index):
+    """Process individual email for details and attachments."""
+    try:
+        email_subject_span = email_element.find_elements(By.XPATH, selectors["email_subject"])
+        if email_subject_span:
+            logging.info(f"Email {index}: New")
+            email_element.click()
+            time.sleep(2)
 
-def run_haveloc():
-    # Locate and click the button to read the latest emails
-    # Locate and click the Cancel button
+            subject_element = driver.find_element(By.XPATH, selectors["email_subject_detail"])
+            email_date_element = driver.find_element(By.XPATH, selectors["email_date_detail"])
+
+            logging.info(f"  Subject: {subject_element.text}")
+            logging.info(f"  Date: {email_date_element.text}")
+
+            attachment_element = driver.find_element(By.XPATH, selectors["attachment_notification"])
+            if attachment_element.text.strip() == "":
+                logging.info("  No attachment for this email.")
+            else:
+                logging.info("  Attachment found for this email.")
+                attachment_download_button = driver.find_element(By.XPATH, selectors["attachment_download_button"])
+                attachment_download_button.click()
+                time.sleep(5)
+
+                download_dir = os.path.expanduser('~') + "/Downloads"
+                downloaded_file = max([os.path.join(download_dir, f) for f in os.listdir(download_dir)],
+                                      key=os.path.getctime)
+                logging.info(f"Extracting data: {downloaded_file}")
+                nxtresult = reg_extract(downloaded_file)
+
+                company_name = subject_element.text
+                fetch_and_update_users(company_name, nxtresult)
+                upload_response = upload_company(company_name, nxtresult)
+                logging.info("Data uploaded to Supabase: %s", upload_response)
+        else:
+            logging.info(f"Email {index}: Seen")
+            email_element.click()
+            time.sleep(2)
+
+            subject_element = driver.find_element(By.XPATH, selectors["email_subject_detail"])
+            email_date_element = driver.find_element(By.XPATH, selectors["email_date_detail"])
+
+            logging.info(f"  Subject: {subject_element.text}")
+            logging.info(f"  Date: {email_date_element.text}")
+
+            attachment_element = driver.find_element(By.XPATH, selectors["attachment_notification"])
+            if attachment_element.text.strip() == "":
+                logging.info("  No attachment for this email.")
+            else:
+                logging.info("  Attachment found for this email.")
+    except Exception as e:
+        logging.error(f"Error processing email {index}: {e}")
+
+def run_haveloc_scrape():
+    """Continuously process emails, refreshing if 'Load More' button is encountered."""
     try:
         cancel_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, cancel_button_selector))
+            conditions.element_to_be_clickable((By.XPATH, selectors["cancel_button"]))
         )
         cancel_button.click()
-        print("Cancel button clicked successfully.")
+        logging.info("Install App Popup Closed Successfully.")
     except Exception as e:
-        print("Error clicking the Cancel button:", e)
+        logging.error("Error Closing the Install App Popup: %s", e)
 
-    # Proceed with email processing after the button click
     try:
-        while True:  # Loop to check emails
-            # Locate the email list container
+        while True:
             email_list_container = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, email_list_container_selector))
+                conditions.presence_of_element_located((By.XPATH, selectors["email_list_container"]))
             )
-
-            # Get all children of the email list container
-            email_elements = email_list_container.find_elements(By.XPATH, email_element_selector)
+            email_elements = email_list_container.find_elements(By.XPATH, selectors["email_element"])
 
             if email_elements:
                 for index, email_element in enumerate(email_elements, start=1):
-                    try:
-                        # Check if it's the "Load More" button
-                        if load_more_button_selector in email_element.get_attribute('class'):
-                            print("Reached 'Load More' button. Refreshing page to start over.")
-                            # Refresh the page and restart the email checking process
-                            driver.refresh()
-                            time.sleep(3)  # Wait for the page to reload and stabilize
-                            return  # Exit the function and start over
+                    if selectors["load_more_button"] in email_element.get_attribute('class'):
+                        logging.info("Reached 'Load More' button. Refreshing page to start over.")
+                        driver.refresh()
+                        time.sleep(3)
+                        return
 
-                        # Locate the email subject span
-                        email_subject_span = email_element.find_elements(By.XPATH, email_subject_selector)
-
-                        # Proceed regardless of whether the span exists or not
-                        if email_subject_span:
-                            print(f"\nEmail {index}:")
-                            print(f"  Subject: New")
-                            # Click on the email to open it
-                            email_element.click()
-
-                            # Wait for the email detail page to load
-                            time.sleep(2)  # You can adjust the delay as needed
-
-                            try:
-                                # Locate the subject and email date elements
-                                subject_element = driver.find_element(By.XPATH, email_subject_detail_selector)
-                                email_date_element = driver.find_element(By.XPATH, email_date_detail_selector)
-
-                                company_name = subject_element.text
-
-                                # Print the subject, email date, and index
-                                print(f"  Subject: {subject_element.text}")
-                                print(f"  Date: {email_date_element.text}")
-
-                                # Locate the attachment notification element
-                                attachment_element = driver.find_element(By.XPATH, attachment_notification_selector)
-
-                                # Check if the attachment element is empty or not
-                                if attachment_element.text.strip() == "":
-                                    print("  No attachment for this email.")
-                                else:
-                                    print("  Attachment found for this email.")
-                                    # Click to download the attachment
-                                    attachment_download_button = driver.find_element(By.XPATH,
-                                                                                     attachment_download_button_selector)
-                                    attachment_download_button.click()
-
-                                    # Wait for the file to download (you may need to adjust this time)
-                                    time.sleep(5)
-
-                                    # Click to download the attachment
-                                    attachment_download_button = driver.find_element(By.XPATH,
-                                                                                     attachment_download_button_selector)
-                                    attachment_download_button.click()
-
-                                    # Wait for the file to download (you may need to adjust this time)
-                                    time.sleep(5)
-
-                                    # Assuming the downloaded file is in the default download directory
-                                    download_dir = os.path.expanduser('~') + "/Downloads"  # Adjust this if needed
-                                    downloaded_files = os.listdir(download_dir)
-
-                                    # Get the latest downloaded file (assuming the newest one is the attachment)
-                                    downloaded_file = max([os.path.join(download_dir, f) for f in downloaded_files],
-                                                          key=os.path.getctime)
-
-                                    # Invoke reg_extract with the downloaded file path
-                                    print(f"Extracting data: {downloaded_file}")
-                                    nxtresult = reg_extract(downloaded_file)
-
-                                    fetch_and_update_users(company_name,nxtresult)
-
-                                    upload_response = upload_company(company_name, nxtresult)
-                                    print("Data uploaded to Supabase:", upload_response)
-
-                            except Exception as e:
-                                print("Error checking attachment:", e)
-                        else:
-                            print(f"\nEmail {index}: Seen")
-                            # Click on the email to open it
-                            email_element.click()
-
-                            # Wait for the email detail page to load
-                            time.sleep(2)  # You can adjust the delay as needed
-
-                            try:
-                                # Locate the subject and email date elements
-                                subject_element = driver.find_element(By.XPATH, email_subject_detail_selector)
-                                email_date_element = driver.find_element(By.XPATH, email_date_detail_selector)
-
-
-                                # Print the subject, email date, and index
-                                print(f"  Subject: {subject_element.text}")
-                                print(f"  Date: {email_date_element.text}")
-
-                                # Locate the attachment notification element
-                                attachment_element = driver.find_element(By.XPATH, attachment_notification_selector)
-
-                                # Check if the attachment element is empty or not
-                                if attachment_element.text.strip() == "":
-                                    print("  No attachment for this email.")
-                                else:
-                                    print("  Attachment found for this email.")
-
-
-                            except Exception as e:
-                                print("Error checking attachment:", e)
-
-                        # Add a short delay before moving to the next email
-                        time.sleep(1)
-
-                    except Exception as e:
-                        print(f"Error processing email {index}: {e}")
-
+                    process_email(email_element, index)
+                    time.sleep(1)
             else:
-                print("No emails found in the email list.")
-                break  # Exit if no emails are found
-
+                logging.info("No emails found in the email list.")
+                break
     except Exception as e:
-        print("Error:", e)
+        logging.error("Error: %s", e)
 
+    clear_screen()
 
-# Continuously process emails and refresh if 'Load More' is encountered
+# Main loop to continuously process emails
 while True:
-    run_haveloc()
+    run_haveloc_scrape()

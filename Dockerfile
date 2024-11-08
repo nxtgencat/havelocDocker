@@ -1,49 +1,26 @@
 # Use a base image with the necessary dependencies
-FROM python:3.9-slim
-
-ENV PYTHONUNBUFFERED=1
+FROM python:3.13-slim
 
 # Set the working directory
 WORKDIR /app
 
-# Install the necessary packages
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    gconf-service \
-    libgconf-2-4 \
-    fonts-liberation \
-    libappindicator1 \
-    libasound2 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgcc1 \
-    libgdk-pixbuf2.0-0 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    lsb-release \
-    software-properties-common \
     wget \
-    unzip
+    unzip \
+    curl \
+    xvfb \
+    libxi6 \
+    libgconf-2-4 \
+    default-jdk \
+    fonts-liberation \
+    libappindicator3-1 \
+    libasound2 \
+    libx11-xcb1 \
+    libgbm1 \
+    libgtk-3-0 \
+    libu2f-udev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Chrome
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
@@ -63,6 +40,7 @@ ENV CHROME_BINARY_PATH="/usr/bin/google-chrome"
 
 # Install Python dependencies
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy your Python script

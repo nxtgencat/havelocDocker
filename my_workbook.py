@@ -1,6 +1,5 @@
 from openpyxl import load_workbook
 
-
 def reg_extract(file_path):
     # Load the workbook and select the active sheet
     workbook = load_workbook(file_path)
