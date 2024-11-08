@@ -1,6 +1,8 @@
 # Use a base image with the necessary dependencies
 FROM python:3.9-slim
 
+ENV PYTHONUNBUFFERED=1
+
 # Set the working directory
 WORKDIR /app
 

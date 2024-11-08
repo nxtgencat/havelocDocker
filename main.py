@@ -73,7 +73,7 @@ attachment_download_button_selector = "//*[@id='root']/div[3]/div[2]/div/div[2]/
 cancel_button_selector = "/html/body/div[3]/div[3]/div/div[3]/button[1]/span[1]"
 
 
-def readLatestMails():
+def run_haveloc():
     # Locate and click the button to read the latest emails
     # Locate and click the Cancel button
     try:
@@ -124,6 +124,8 @@ def readLatestMails():
                                 # Locate the subject and email date elements
                                 subject_element = driver.find_element(By.XPATH, email_subject_detail_selector)
                                 email_date_element = driver.find_element(By.XPATH, email_date_detail_selector)
+
+                                company_name = subject_element.text
 
                                 # Print the subject, email date, and index
                                 print(f"  Subject: {subject_element.text}")
@@ -182,7 +184,6 @@ def readLatestMails():
                                 subject_element = driver.find_element(By.XPATH, email_subject_detail_selector)
                                 email_date_element = driver.find_element(By.XPATH, email_date_detail_selector)
 
-                                company_name = subject_element.text
 
                                 # Print the subject, email date, and index
                                 print(f"  Subject: {subject_element.text}")
@@ -217,4 +218,4 @@ def readLatestMails():
 
 # Continuously process emails and refresh if 'Load More' is encountered
 while True:
-    readLatestMails()
+    run_haveloc()
