@@ -31,5 +31,5 @@ jobs:
     # Build and push Docker image using version with 'v' prefix
     - name: Build and push Docker image
       run: |
-        docker build -t your-dockerhub-username/your-image-name:${{ env.VERSION }} .
-        docker push your-dockerhub-username/your-image-name:${{ env.VERSION }}
+        docker build -t nxtgencat/havelocscraper:${{ env.VERSION }} .
+        docker push nxtgencat/havelocscraper:${{ env.VERSION }}
