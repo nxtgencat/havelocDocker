@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libgtk-3-0 \
     libu2f-udev \
+    gnupg\
     && rm -rf /var/lib/apt/lists/*
 
 # Install Chrome
