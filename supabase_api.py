@@ -24,8 +24,8 @@ def upload_company(company_title: str, reg_number: str):
 
 
 def fetch_and_update_users(company_name: str, nxtresult: str):
-    # Split nxtresult into a list of registration numbers
-    reg_numbers = nxtresult.split(',')
+    # Split nxtresult into a list of registration numbers and strip whitespace from each
+    reg_numbers = [reg.strip() for reg in nxtresult.split(',')]
 
     # Fetch all users from the 'users' table
     logging.info("Fetching users from the database...")
@@ -35,7 +35,7 @@ def fetch_and_update_users(company_name: str, nxtresult: str):
 
     for user in users.data:
         chat_id = user["chat_id"]
-        reg_number = user["reg_number"]
+        reg_number = user["reg_number"].strip()  # Strip whitespace from database reg_number
         shortlisted_companies = user["shortlisted_companies"]
 
         # Log the values for checking
@@ -43,7 +43,7 @@ def fetch_and_update_users(company_name: str, nxtresult: str):
             f"Checking user: chat_id={chat_id}, reg_number={reg_number}, shortlisted_companies={shortlisted_companies}")
 
         # Check if reg_number is in nxtresult
-        logging.info(f"Checking if reg_number {reg_number} exists in nxtresult...")
+        logging.info(f"Checking if reg_number {reg_number} exists in sheet...")
         if reg_number in reg_numbers:
             logging.info(f"Match found for {reg_number}")
 
@@ -60,6 +60,7 @@ def fetch_and_update_users(company_name: str, nxtresult: str):
             }).eq("chat_id", chat_id).execute()
 
             # Send message to the user via the bot
-            send_message_bot(chat_id, f"You're shortlisted for {company_name}")
+            send_message_bot(chat_id, f"You're listed for {company_name}")
         else:
             logging.info(f"No match found for {reg_number}")
+

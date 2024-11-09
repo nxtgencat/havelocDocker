@@ -105,7 +105,7 @@ def check_each_email(email_element, index):
         if email_subject_span:
             process_email_details(email_element, index, "new", True)
         else:
-            process_email_details(email_element, index, "seen", True)
+            process_email_details(email_element, index, "seen", False)
 
     except Exception as e:
         logging.error(f"Error processing email {index}: {e}")
@@ -139,7 +139,7 @@ def process_email_details(email_element, index, status, extract):
                 # Proceed with any further actions for the table
                 fetch_and_update_users(company_name, table_data)
                 upload_response = upload_company(company_name, table_data)
-                logging.info("Data uploaded to Supabase: %s", upload_response)
+                logging.info("Data uploaded to Supabase.")
 
             else:
                 logging.warning("No table data found. Checking for attachment...")
@@ -163,7 +163,7 @@ def process_email_details(email_element, index, status, extract):
 
                     fetch_and_update_users(company_name, file_extracted_result)
                     upload_response = upload_company(company_name, file_extracted_result)
-                    logging.info("Data uploaded to Supabase: %s", upload_response)
+                    logging.info("Data uploaded to Supabase.")
 
         else:
             # If 'extract' is False, do nothing (skip everything)
@@ -184,10 +184,14 @@ def extract_table_column_data(column_index):
     # Start the loop from the second row to skip the first one
     for row in all_rows[1:]:
         td_in_row = row.find_elements(By.TAG_NAME, "td")
-        # Extract text from the specified column index
-        column_data.append(td_in_row[column_index - 1].text.strip())
+        # Extract text from the specified column index and strip whitespace
+        cell_text = td_in_row[column_index - 1].text.strip()
+        column_data.append(cell_text)
 
-    return ", ".join(column_data)
+    # Strip any extra whitespace from all elements in the list before joining
+    cleaned_column_data = [data.strip() for data in column_data]
+
+    return ", ".join(cleaned_column_data)
 
 
 def check_table_header():
@@ -249,7 +253,7 @@ def run_haveloc_scrape():
                         driver.refresh()
                         time.sleep(3)
                         return
-
+                    clear_screen()
                     check_each_email(email_element, index)
                     time.sleep(5)
             else:
@@ -258,7 +262,6 @@ def run_haveloc_scrape():
     except Exception as e:
         logging.error("Error: %s", e)
 
-    clear_screen()
 
 
 # Main loop to continuously process emails
