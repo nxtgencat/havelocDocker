@@ -1,7 +1,7 @@
+import logging
 import os
 import time
 
-import logging
 # Configure the logger
 logging.basicConfig(
     level=logging.INFO,
@@ -21,11 +21,13 @@ from selenium.webdriver.support import expected_conditions as conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
 from data_utils import get_haveloc_credentials
-from my_workbook import reg_extract
+from my_workbook import file_data_extract
 from supabase_api import fetch_and_update_users, upload_company
+
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')  # Clear screen based on OS
+
 
 logging.info('Setting up environment')
 
@@ -50,11 +52,17 @@ selectors = {
     "email_subject": ".//div[@class='email-subject']/span",
     "email_subject_detail": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[1]/div[1]",
     "email_date_detail": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[1]/div[2]/div[2]",
+    "table_container": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[2]/div/table",
+    "table_header": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[2]/div/table/tbody/tr[1]",
+    "all_rows": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[2]/div/table/tbody/tr",
     "attachment_notification": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[1]",
     "attachment_download_button": "//*[@id='root']/div[3]/div[2]/div/div[2]/div[1]/div[2]/div[2]/div/div[1]/div/div/div[2]/span",
     "cancel_button": "/html/body/div[3]/div[3]/div/div[3]/button[1]/span[1]",
     "login_page_identify": "//*[@id='root']/div[2]/div[1]/div[1]"
 }
+
+valid_texts = ["reg no", "registration number", "reg num", "registration no", "roll no", "roll number", "roll num"]
+
 
 def inject_credentials():
     """Inject cookies and local storage from saved credentials."""
@@ -63,6 +71,7 @@ def inject_credentials():
         driver.add_cookie(cookie)
     for key, value in saved_data.get("localStorage", {}).items():
         driver.execute_script(f"window.localStorage.setItem('{key}', '{value}');")
+
 
 def login_haveloc():
     """Log into Haveloc app, retrying if login fails."""
@@ -85,60 +94,135 @@ def login_haveloc():
             time.sleep(5)
             break
 
+
 login_haveloc()
 
-def process_email(email_element, index):
+
+def check_each_email(email_element, index):
     """Process individual email for details and attachments."""
     try:
         email_subject_span = email_element.find_elements(By.XPATH, selectors["email_subject"])
         if email_subject_span:
-            logging.info(f"Email {index}: New")
-            email_element.click()
-            time.sleep(2)
-
-            subject_element = driver.find_element(By.XPATH, selectors["email_subject_detail"])
-            email_date_element = driver.find_element(By.XPATH, selectors["email_date_detail"])
-
-            logging.info(f"  Subject: {subject_element.text}")
-            logging.info(f"  Date: {email_date_element.text}")
-
-            attachment_element = driver.find_element(By.XPATH, selectors["attachment_notification"])
-            if attachment_element.text.strip() == "":
-                logging.info("  No attachment for this email.")
-            else:
-                logging.info("  Attachment found for this email.")
-                attachment_download_button = driver.find_element(By.XPATH, selectors["attachment_download_button"])
-                attachment_download_button.click()
-                time.sleep(5)
-
-                download_dir = os.path.expanduser('~') + "/Downloads"
-                downloaded_file = max([os.path.join(download_dir, f) for f in os.listdir(download_dir)],
-                                      key=os.path.getctime)
-                logging.info(f"Extracting data: {downloaded_file}")
-                nxtresult = reg_extract(downloaded_file)
-
-                company_name = subject_element.text
-                fetch_and_update_users(company_name, nxtresult)
-                upload_response = upload_company(company_name, nxtresult)
-                logging.info("Data uploaded to Supabase: %s", upload_response)
+            process_email_details(email_element, index, "new", True)
         else:
-            logging.info(f"Email {index}: Seen")
-            email_element.click()
-            time.sleep(2)
+            process_email_details(email_element, index, "seen", True)
 
-            subject_element = driver.find_element(By.XPATH, selectors["email_subject_detail"])
-            email_date_element = driver.find_element(By.XPATH, selectors["email_date_detail"])
-
-            logging.info(f"  Subject: {subject_element.text}")
-            logging.info(f"  Date: {email_date_element.text}")
-
-            attachment_element = driver.find_element(By.XPATH, selectors["attachment_notification"])
-            if attachment_element.text.strip() == "":
-                logging.info("  No attachment for this email.")
-            else:
-                logging.info("  Attachment found for this email.")
     except Exception as e:
         logging.error(f"Error processing email {index}: {e}")
+
+
+def process_email_details(email_element, index, status, extract):
+    """Process email details and attachments or table for both new and seen emails.
+
+    Args:
+    - email_element: The email element to process.
+    - index: The index of the email.
+    - status: The status of the email, either 'new' or 'seen'.
+    - extract: Boolean flag to indicate if table checking should be done.
+    """
+    try:
+        logging.info(f"Email {index}: {status.capitalize()}")
+        email_element.click()
+        time.sleep(2)
+
+        subject_element = driver.find_element(By.XPATH, selectors["email_subject_detail"])
+        email_date_element = driver.find_element(By.XPATH, selectors["email_date_detail"])
+        company_name = subject_element.text
+        logging.info(f"  Subject: {subject_element.text}")
+        logging.info(f"  Date: {email_date_element.text}")
+
+        # If 'extract' is True, check for the table first
+        if extract:
+            table_data = check_table_header()  # Check for table and extract data
+            if table_data != "Table container not found." and table_data != "No valid column found in table_header.":
+                logging.info(f"  Data found. Extracted data: {table_data}")
+                # Proceed with any further actions for the table
+                fetch_and_update_users(company_name, table_data)
+                upload_response = upload_company(company_name, table_data)
+                logging.info("Data uploaded to Supabase: %s", upload_response)
+
+            else:
+                logging.warning("No table data found. Checking for attachment...")
+
+                # Check for attachments if no table is found
+                attachment_element = driver.find_element(By.XPATH, selectors["attachment_notification"])
+                if attachment_element.text.strip() == "":
+                    logging.info("  No attachment for this email.")
+                else:
+                    logging.info("  Attachment found for this email.")
+                    attachment_download_button = driver.find_element(By.XPATH, selectors["attachment_download_button"])
+                    attachment_download_button.click()
+                    time.sleep(5)
+
+                    download_dir = os.path.expanduser('~') + "/Downloads"
+                    downloaded_file = max([os.path.join(download_dir, f) for f in os.listdir(download_dir)],
+                                          key=os.path.getctime)
+                    logging.info(f"Extracting data: {downloaded_file}")
+                    file_extracted_result = file_data_extract(downloaded_file)
+
+
+                    fetch_and_update_users(company_name, file_extracted_result)
+                    upload_response = upload_company(company_name, file_extracted_result)
+                    logging.info("Data uploaded to Supabase: %s", upload_response)
+
+        else:
+            # If 'extract' is False, do nothing (skip everything)
+            logging.info(f"  Skipping extraction and attachment checks for email {index}.")
+
+    except Exception as e:
+        logging.error(f"Error processing email {index}: {e}")
+
+
+def extract_table_column_data(column_index):
+    """
+    Extracts the data from a specific column (excluding the header row)
+    and returns it as a comma-separated string.
+    """
+    all_rows = driver.find_elements(By.XPATH, selectors["all_rows"])
+    column_data = []
+
+    # Start the loop from the second row to skip the first one
+    for row in all_rows[1:]:
+        td_in_row = row.find_elements(By.TAG_NAME, "td")
+        # Extract text from the specified column index
+        column_data.append(td_in_row[column_index - 1].text.strip())
+
+    return ", ".join(column_data)
+
+
+def check_table_header():
+    # Check if the table container exists
+    try:
+        table_container = driver.find_element(By.XPATH, selectors["table_container"])
+        logging.info("Table container found.")  # Log confirmation when table container is found
+    except:
+        logging.error("Table container not found.")
+        return "Table container not found."
+    try:
+        table_header = driver.find_element(By.XPATH, selectors["table_header"])
+
+        # Check all td elements within table_header
+        td_elements = table_header.find_elements(By.TAG_NAME, "td")
+        for index, td in enumerate(td_elements, start=1):  # Start indexing from 1 for readability
+            # Get the text content of the td, convert to lowercase, and check for matches
+            td_text = td.text.strip().lower()
+            if td_text in [text.lower() for text in valid_texts]:
+                logging.info(f"Found valid text: '{td_text}' in column {index}")
+
+                # Extract all data from the found column
+                column_data = extract_table_column_data(index)
+
+                # Return the extracted data as a comma-separated string
+                return column_data
+
+        else:
+            logging.warning("No valid column found in table_header.")
+            return "No valid column found in table_header."
+
+    except:
+        logging.error("Table header not found.")
+        return "Table header not found."
+
 
 def run_haveloc_scrape():
     """Continuously process emails, refreshing if 'Load More' button is encountered."""
@@ -166,8 +250,8 @@ def run_haveloc_scrape():
                         time.sleep(3)
                         return
 
-                    process_email(email_element, index)
-                    time.sleep(1)
+                    check_each_email(email_element, index)
+                    time.sleep(5)
             else:
                 logging.info("No emails found in the email list.")
                 break
@@ -175,6 +259,7 @@ def run_haveloc_scrape():
         logging.error("Error: %s", e)
 
     clear_screen()
+
 
 # Main loop to continuously process emails
 while True:

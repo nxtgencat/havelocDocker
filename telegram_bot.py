@@ -1,4 +1,5 @@
 import logging
+
 import requests
 
 # Global variables for Telegram bot
@@ -7,7 +8,6 @@ BASE_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
 
 def send_message_bot(chat_id, message):
-
     logging.info(f"Sending message to chat_id {chat_id}: {message}")
 
     payload = {
@@ -23,4 +23,3 @@ def send_message_bot(chat_id, message):
             logging.error(f"Failed to send message to {chat_id}, Status Code: {response.status_code}")
     except Exception as e:
         logging.error(f"Error sending message to {chat_id}: {e}")
-

@@ -1,6 +1,7 @@
 import logging
 
-from supabase import create_client, Client
+from supabase import create_client
+
 from telegram_bot import send_message_bot
 
 # Replace these with your Supabase URL and API Key
@@ -12,7 +13,6 @@ supabase = create_client(SUPABASE_URL, SUPABASE_API_KEY)
 
 
 def upload_company(company_title: str, reg_number: str):
-
     # Insert data into the company table
     response = supabase.table("company").insert({
         "company_title": company_title,
@@ -24,7 +24,6 @@ def upload_company(company_title: str, reg_number: str):
 
 
 def fetch_and_update_users(company_name: str, nxtresult: str):
-
     # Split nxtresult into a list of registration numbers
     reg_numbers = nxtresult.split(',')
 

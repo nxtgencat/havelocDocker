@@ -10,18 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Log in to Docker Hub (or GHCR)
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      # Log in to Docker Hub (or GHCR)
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # Build and push Docker image using version with 'v' prefix
-    - name: Build and push Docker image
-      run: |
-        docker build -t nxtgencat/havelocscraper:latest .
-        docker push nxtgencat/havelocscraper:latest
+      # Build and push Docker image using version with 'v' prefix
+      - name: Build and push Docker image
+        run: |
+          docker build -t nxtgencat/havelocscraper:latest .
+          docker push nxtgencat/havelocscraper:latest

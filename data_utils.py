@@ -1,7 +1,8 @@
 import base64
 import json
-import requests
 import logging
+
+import requests
 
 
 def decrypt_base64(encoded_data):
