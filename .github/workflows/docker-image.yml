@@ -23,5 +23,5 @@ jobs:
     # Build and push Docker image using version with 'v' prefix
     - name: Build and push Docker image
       run: |
-        docker build -t nxtgencat/havelocscraper:latest
+        docker build -t nxtgencat/havelocscraper:latest .
         docker push nxtgencat/havelocscraper:latest
