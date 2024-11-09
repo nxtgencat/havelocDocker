@@ -25,10 +25,6 @@ from my_workbook import file_data_extract
 from supabase_api import fetch_and_update_users, upload_company
 
 
-def clear_screen():
-    os.system('cls' if os.name == 'nt' else 'clear')  # Clear screen based on OS
-
-
 logging.info('Setting up environment')
 
 chrome_options = Options()
@@ -253,7 +249,7 @@ def run_haveloc_scrape():
                         driver.refresh()
                         time.sleep(3)
                         return
-                    clear_screen()
+
                     check_each_email(email_element, index)
                     time.sleep(5)
             else:
