@@ -10,6 +10,10 @@ The Haveloc Scraper is a Python-based web scraper designed to automate the proce
 - **Data Extraction**: Extracts data from email tables and uploads it to Supabase.
 - **Error Logging**: Captures errors and logs them for troubleshooting.
 
+## Docker Integration
+
+This project includes Docker support, making it easy to containerize and run the tool. The Dockerfile sets up a Python environment and prepares the bot to be run in a Docker container.
+
 ## Prerequisites
 
 - Python 3.x
