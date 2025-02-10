@@ -29,4 +29,5 @@ jobs:
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 \
             -t nxtgencat/havelocscraper:latest \
-            --push .
+            -f Dockerfile . \
+            --push

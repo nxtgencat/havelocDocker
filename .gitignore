@@ -1,5 +1,14 @@
-my_sample_data/
+# Virtual environment
+venv/
+.env/
 
+# Environment variables
 .env
+*.env
 
-logs
+# PyCharm project files
+.idea/
+
+# Logs and database files
+logs/
+*.log
