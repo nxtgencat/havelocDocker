@@ -1,9 +1,10 @@
 import base64
 import json
 import logging
+import os
+import dotenv
 
-import requests
-
+dotenv.load_dotenv()
 
 def decrypt_base64(encoded_data):
     try:
@@ -19,25 +20,24 @@ def decrypt_base64(encoded_data):
 
 
 def get_haveloc_credentials():
-    # URL of the raw file on GitHub
-    url = "https://raw.githubusercontent.com/nxtgencat/HavelocScraper/refs/heads/master/havcred"
-
     try:
-        logging.info(f"Sending GET request to {url}")
-        # Sending a GET request to fetch the raw data
-        response = requests.get(url)
+        logging.info("Attempting to read credentials from environment variable")
+        # Get the base64 encoded string from environment variable
+        encoded_credentials = os.getenv('HAVELOC_CREDENTIALS')
 
-        # Check if the request was successful (status code 200)
-        if response.status_code == 200:
-            logging.info("Credentials fetched successfully.")
-            # Getting the content of the response
-            raw_data = response.text
-            decoded_data = decrypt_base64(raw_data)
-            json_data = json.loads(decoded_data)
-            logging.info("Successfully parsed credentials JSON.")
-            return json_data
-        else:
-            logging.error(f"Failed to fetch data. Status code: {response.status_code}")
+        if not encoded_credentials:
+            logging.error("HAVELOC_CREDENTIALS environment variable not found")
+            raise ValueError("HAVELOC_CREDENTIALS environment variable is not set")
+
+        # Decode and parse the credentials
+        decoded_data = decrypt_base64(encoded_credentials)
+        json_data = json.loads(decoded_data)
+        logging.info("Successfully parsed credentials JSON.")
+        # print(json_data)
+        return json_data
 
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"An error occurred while processing credentials: {e}")
+        raise
+
+# get_haveloc_credentials()

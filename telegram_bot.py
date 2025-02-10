@@ -1,9 +1,13 @@
 import logging
+import os
 
+import dotenv
 import requests
 
+dotenv.load_dotenv()
+
 # Global variables for Telegram bot
-TOKEN = '8049997274:AAHfCdEdD-jCcw9ovmUgUDEYu7w7SJx8naY'  # Replace with your actual bot token
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") # Replace with your actual bot token
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
 

@@ -1,12 +1,14 @@
 import logging
+import os
 
+import dotenv
 from supabase import create_client
-
 from telegram_bot import send_message_bot
 
+dotenv.load_dotenv()
 # Replace these with your Supabase URL and API Key
-SUPABASE_URL = "https://zlygxmxwzigeuecbwukw.supabase.co"
-SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpseWd4bXh3emlnZXVlY2J3dWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA5MDY5MTAsImV4cCI6MjA0NjQ4MjkxMH0.ikIH_7vobQdWDz945ID17LLdRX8D5JCfut0_Z2P47sU"
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_API_KEY = os.environ.get("SUPABASE_API_KEY")
 
 # Create the Supabase client
 supabase = create_client(SUPABASE_URL, SUPABASE_API_KEY)
