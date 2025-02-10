@@ -3,7 +3,7 @@ name: Build and Push ARM64 Docker Image
 on:
   push:
     branches:
-      - docker
+      - dash
   workflow_dispatch:
 
 jobs:
