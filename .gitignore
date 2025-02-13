@@ -1,5 +1,24 @@
-my_sample_data/
 
-.env
+# Virtual environment
+venv/
+env/
+*.venv/
 
-logs
+# PyCharm specific files
+.idea/
+*.iml
+*.ipr
+*.iws
+
+
+
+# Log files
+logs/
+*.log
+
+
+
+# Python package files
+dist/
+build/
+*.egg-info/

@@ -1,15 +1,14 @@
-import os
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as conditions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import (
     TimeoutException,
     StaleElementReferenceException,
-    NoSuchElementException,
-    ElementClickInterceptedException
+    ElementClickInterceptedException, WebDriverException
 )
 
 from config import *
@@ -28,41 +27,76 @@ class HavelocScraper:
         self.setup_driver()
 
     def setup_driver(self):
-        """Initialize and configure Chrome WebDriver."""
-        chrome_options = Options()
-        chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        self.driver = webdriver.Chrome(options=chrome_options)
+        """Initialize and configure Chromium WebDriver."""
+        logger.info("Setting up Chromium WebDriver")
+        try:
+            chrome_options = Options()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.binary_location = "/usr/bin/chromium"  # Specify Chromium binary location
+
+            logger.debug("Chromium options configured: %s", chrome_options.arguments)
+
+            # Use system's chromedriver
+            service = Service("/usr/bin/chromedriver")
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+
+            logger.info("Chromium WebDriver successfully initialized")
+
+            # Log browser details
+            browser_version = self.driver.capabilities.get('browserVersion', 'unknown')
+            chromium_version = self.driver.capabilities.get('chrome', {}).get('chromedriverVersion', 'unknown')
+            logger.info(f"Browser version: {browser_version}")
+            logger.info(f"ChromeDriver version: {chromium_version}")
+
+        except WebDriverException as e:
+            logger.error(f"Failed to initialize WebDriver: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during WebDriver initialization: {str(e)}")
+            raise
 
     def inject_credentials(self):
         """Inject cookies and local storage from saved credentials."""
+        logger.info("Starting credentials injection")
         saved_data = get_haveloc_credentials()
+        logger.debug(
+            f"Retrieved credentials with {len(saved_data.get('cookies', []))} cookies and {len(saved_data.get('localStorage', {}))} localStorage items")
 
-        # Clear existing cookies and storage
-        self.driver.delete_all_cookies()
-        self.driver.execute_script("window.localStorage.clear();")
+        try:
+            # Clear existing cookies and storage
+            self.driver.delete_all_cookies()
+            self.driver.execute_script("window.localStorage.clear();")
+            logger.debug("Cleared existing cookies and localStorage")
 
-        # Add cookies
-        for cookie in saved_data.get("cookies", []):
-            clean_cookie = {
-                key: cookie[key]
-                for key in ['name', 'value', 'domain', 'path', 'secure', 'httpOnly']
-                if key in cookie
-            }
-            try:
-                self.driver.add_cookie(clean_cookie)
-            except Exception as e:
-                logger.warning(f"Failed to set cookie {clean_cookie['name']}: {str(e)}")
+            # Add cookies
+            for cookie in saved_data.get("cookies", []):
+                clean_cookie = {
+                    key: cookie[key]
+                    for key in ['name', 'value', 'domain', 'path', 'secure', 'httpOnly']
+                    if key in cookie
+                }
+                try:
+                    self.driver.add_cookie(clean_cookie)
+                    logger.debug(f"Successfully set cookie: {clean_cookie['name']}")
+                except Exception as e:
+                    logger.warning(f"Failed to set cookie {clean_cookie['name']}: {str(e)}")
 
-        # Add localStorage items
-        for key, value in saved_data.get("localStorage", {}).items():
-            try:
-                safe_value = value.replace("'", "\\'")
-                self.driver.execute_script(f"window.localStorage.setItem('{key}', '{safe_value}');")
-            except Exception as e:
-                logger.warning(f"Failed to set localStorage item {key}: {str(e)}")
+            # Add localStorage items
+            for key, value in saved_data.get("localStorage", {}).items():
+                try:
+                    safe_value = value.replace("'", "\\'")
+                    self.driver.execute_script(f"window.localStorage.setItem('{key}', '{safe_value}');")
+                    logger.debug(f"Successfully set localStorage item: {key}")
+                except Exception as e:
+                    logger.warning(f"Failed to set localStorage item {key}: {str(e)}")
+
+            logger.info("Credentials injection completed successfully")
+        except Exception as e:
+            logger.error(f"Error during credentials injection: {str(e)}")
+            raise
 
     def safe_click(self, element, wait_time=2):
         """Safely click an element with retry logic."""
